@@ -15,8 +15,8 @@ class Map{
         this.grid = [
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
             [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-            [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-            [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
+            [1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+            [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
             [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
             [1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1],
             [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -54,7 +54,7 @@ class Player{
     constructor(){
         this.x = WINDOW_WIDTH / 2;
         this.y = WINDOW_HEIGHT / 2;
-        this.radius = 5;
+        this.radius = 3;
         this.turnDirection = 0;
         this.walkDirection = 0;
         this.rotationAngle = Math.PI / 2; 
@@ -79,13 +79,13 @@ class Player{
         noStroke();
         fill("red");
         circle(this.x, this.y, this.radius)
-        stroke("red");
-        line(
-            this.x, 
-            this.y, 
-            this.x + Math.cos(this.rotationAngle) * 30,
-            this.y + Math.sin(this.rotationAngle) * 30
-        );
+        // stroke("red");
+        // line(
+        //     this.x, 
+        //     this.y, 
+        //     this.x + Math.cos(this.rotationAngle) * 30,
+        //     this.y + Math.sin(this.rotationAngle) * 30
+        // );
             
     }
 }
@@ -96,12 +96,107 @@ class Ray{
         this.wallHitX = 0;
         this.wallHitY = 0;
         this.distance = 0;
-    }
+        this.wasHitVertical = false;
 
+        this.isRayFacingDown = this.rayAngle > 0 && this.rayAngle < Math.PI;
+        this.isRayFacingUp = !this.isRayFacingDown;
+        
+        this.isRayFacingRight = this.rayAngle < 0.5 * Math.PI || this.rayAngle > 1.5 * Math.PI;
+        this.isRayFacingLeft = !this.isRayFacingRight;
+    }
+    
     cast(columnId){
         var xintercept, yintercept;
         var xstep, ystep;
+        
+        /////////////////////////////////////////////////////////////////////////
+        //                       HORIZANTAL RAY-INTERCEPT                      //
+        /////////////////////////////////////////////////////////////////////////
+        var foundHorzWallHit = false;
+        var horzWallHitX = 0;
+        var horzWallHitY = 0;
 
+        yintercept = Math.floor(player.y / TILE_SIZE) * TILE_SIZE;
+        yintercept += this.isRayFacingDown ? TILE_SIZE : 0;
+
+        xintercept = player.x + (yintercept - player.y) / Math.tan(this.rayAngle);
+
+        ystep = TILE_SIZE;
+        ystep *= this.isRayFacingUp ? -1 : 1;
+
+        xstep = TILE_SIZE / Math.tan(this.rayAngle);
+        xstep *= (this.isRayFacingLeft && xstep > 0) ? -1 : 1;
+        xstep *= (this.isRayFacingRight && xstep < 0) ? -1 : 1;
+
+        var nextHorzTouchX = xintercept;
+        var nextHorzTouchY = yintercept;
+
+        if(this.isRayFacingUp)
+            nextHorzTouchY--;
+
+        while(nextHorzTouchX >= 0 && nextHorzTouchX <= WINDOW_WIDTH && nextHorzTouchY >= 0 && nextHorzTouchY <= WINDOW_HEIGHT){
+            if(grid.hasWallAt(nextHorzTouchX, nextHorzTouchY)){
+                foundHorzWallHit = true;
+                horzWallHitX = nextHorzTouchX;
+                horzWallHitY = nextHorzTouchY;
+                break;
+            }else{
+                nextHorzTouchX += xstep;
+                nextHorzTouchY += ystep;
+            }
+        }
+
+        /////////////////////////////////////////////////////////////////////////
+        //                       VECTICAL RAY-INTERCEPT                        //
+        /////////////////////////////////////////////////////////////////////////
+
+        var foundVertWallHit = false;
+        var vertWallHitX = 0;
+        var vertWallHitY = 0;
+
+        xintercept = Math.floor(player.x / TILE_SIZE) * TILE_SIZE;
+        xintercept += this.isRayFacingRight ? TILE_SIZE : 0;
+
+        yintercept = player.y + (xintercept - player.x) * Math.tan(this.rayAngle);
+
+        xstep = TILE_SIZE;
+        xstep *= this.isRayFacingLeft ? -1 : 1;
+
+        ystep = TILE_SIZE * Math.tan(this.rayAngle);
+        ystep *= (this.isRayFacingUp && ystep > 0) ? -1 : 1;
+        ystep *= (this.isRayFacingDown && ystep < 0) ? -1 : 1;
+
+        var nextVertTouchX = xintercept;
+        var nextVertTouchY = yintercept;
+
+        if(this.isRayFacingLeft){
+            nextVertTouchX--;
+        }
+
+        while(nextVertTouchX >= 0 && nextVertTouchX <= WINDOW_WIDTH && nextVertTouchY >= 0 && nextVertTouchY <= WINDOW_HEIGHT){
+            if(grid.hasWallAt(nextVertTouchX, nextVertTouchY)){
+                foundVertWallHit = true;
+                vertWallHitX = nextVertTouchX;
+                vertWallHitY = nextVertTouchY;
+                break;
+            }else{
+                nextVertTouchX += xstep;
+                nextVertTouchY += ystep;
+            }
+        }
+
+        var horzHitDistance = (foundHorzWallHit) 
+            ? distanceBetweenPoints(player.x, player.y, horzWallHitX, horzWallHitY)
+            : Number.MAX_VALUE;
+
+        var vertHitDistance = (foundVertWallHit) 
+            ? distanceBetweenPoints(player.x, player.y, vertWallHitX, vertWallHitY)
+            : Number.MAX_VALUE;
+
+        this.wallHitX = (horzHitDistance < vertHitDistance) ? horzWallHitX : vertWallHitX;
+        this.wallHitY = (horzHitDistance < vertHitDistance) ? horzWallHitY : vertWallHitY;
+        this.distance = (horzHitDistance < vertHitDistance) ? horzHitDistance : vertHitDistance;
+        this.wasHitVertical = (vertHitDistance < horzHitDistance);
     }
 
     render(){
@@ -109,8 +204,8 @@ class Ray{
         line(
             player.x, 
             player.y, 
-            player.x + Math.cos(this.rayAngle) * 30, 
-            player.y + Math.sin(this.rayAngle) * 30
+            this.wallHitX,
+            this.wallHitY
         );
     }
 }
@@ -122,11 +217,11 @@ var rays = [];
 function keyPressed(){
     
     if(keyCode == UP_ARROW){
-        player.walkDirection = 1;
+        player.walkDirection = +1;
     }else if (keyCode == DOWN_ARROW){
         player.walkDirection = -1;
     }else if (keyCode == RIGHT_ARROW){
-        player.turnDirection = 1;
+        player.turnDirection = +1;
     }else if (keyCode == LEFT_ARROW){
         player.turnDirection = -1;
     }
@@ -152,8 +247,7 @@ function castAllRays(){
 
     rays = [];
     
-    // for(var i = 0; i < NUM_RAYS; i++){
-    for(var i = 0; i < 1; i++){
+    for(var i = 0; i < NUM_RAYS; i++){
         var ray = new Ray(rayAngle);
         ray.cast(columnId);
         rays.push(ray);
@@ -171,6 +265,10 @@ function normalizeAngle(angle){
     }
     return angle
 }
+
+function distanceBetweenPoints(x1, y1, x2, y2){
+    return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+} 
 
 function setup(){
     createCanvas(WINDOW_WIDTH, WINDOW_HEIGHT);
